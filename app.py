@@ -2,6 +2,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import re
+import time
+import random
 import streamlit as st
 from typing import TypedDict, Annotated
 from langchain_mistralai import ChatMistralAI
@@ -25,6 +27,27 @@ class State(TypedDict):
 
 LLM1 = ChatMistralAI(model='mistral-large-2512')
 LLM2 = ChatGroq(model='llama-3.3-70b-versatile')
+
+
+def invoke_with_retry(llm, messages, max_retries=5, base_delay=3):
+    """
+    Calls llm.invoke(messages) and automatically retries with exponential
+    backoff if a rate-limit (429) error is hit. Raises the last error if
+    all retries are exhausted.
+    """
+    last_error = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            return llm.invoke(messages)
+        except Exception as e:
+            last_error = e
+            is_rate_limit = "429" in str(e) or "rate_limit" in str(e).lower()
+            if not is_rate_limit or attempt == max_retries:
+                raise
+            wait_time = base_delay * (2 ** (attempt - 1)) + random.uniform(0, 1)
+            print(f"[yellow]Rate limited. Retry {attempt}/{max_retries} in {wait_time:.1f}s…[/yellow]")
+            time.sleep(wait_time)
+    raise last_error
 
 MISTRALAI_SYSTEM_PROMPT = """You are MISTRAL_DEBATER, an AI debate agent participating in a structured debate against another AI (GROQ_BOT) on a given topic. Your job is to argue and defend your assigned position with strong, logical, evidence-based reasoning while remaining intellectually honest.
 
@@ -82,7 +105,8 @@ def MistralAI_node(state: State) -> dict:
 
     messages = [('system', MISTRALAI_SYSTEM_PROMPT), ('human', user_message)]
 
-    response = LLM1.invoke(messages)
+    time.sleep(2)  # small pacing delay to avoid bursting past rate limits
+    response = invoke_with_retry(LLM1, messages)
     mistralai_reply = response.content
     print(f"MISTRALAI_BOT :{mistralai_reply}\n\n")
     print("=" * 50)
@@ -145,7 +169,8 @@ def GROQAI_node(state: State) -> dict:
 
     messages = [('system', GROQAI_SYSTEM_PROMPT), ('human', user_message)]
 
-    response = LLM2.invoke(messages)
+    time.sleep(2)  # small pacing delay to avoid bursting past rate limits
+    response = invoke_with_retry(LLM2, messages)
     groq_reply = response.content
     print(f"GROQAI_BOT :{groq_reply}\n\n")
     print("=" * 50)
@@ -413,6 +438,29 @@ div.stButton > button:hover {{
     filter: brightness(1.08);
     box-shadow: 0 0 18px {MISTRAL_COLOR}55;
 }}
+
+/* ---------- Credit footer ---------- */
+.credit-footer {{
+    text-align: center;
+    margin-top: 2.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #1c2030;
+}}
+.credit-footer a {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    color: #7d8296;
+    text-decoration: none;
+}}
+.credit-footer a:hover {{
+    color: {MISTRAL_COLOR};
+}}
+.credit-footer .linkedin-icon {{
+    display: inline-block;
+    vertical-align: -2px;
+    margin-right: 5px;
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -439,6 +487,25 @@ def render_header():
         '<span class="vs-mid">vs</span> <span class="vs-groq">GROQ</span></div>',
         unsafe_allow_html=True
     )
+    st.markdown(
+        '<div style="text-align:center; margin-top:-1.1rem; margin-bottom:1.4rem;">'
+        '<span style="font-family:\'JetBrains Mono\', monospace; font-size:0.68rem; '
+        'letter-spacing:0.05em; color:#4b5163;">Built by Gaurav Gupta</span></div>',
+        unsafe_allow_html=True
+    )
+
+
+def render_footer():
+    st.markdown(f"""
+    <div class="credit-footer">
+        <a href="https://www.linkedin.com/in/gaurav-gupta-79754a377" target="_blank">
+            <svg class="linkedin-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45z"/>
+            </svg>
+            Built by Gaurav Gupta &nbsp;·&nbsp; Connect on LinkedIn
+        </a>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def render_fight_card():
@@ -544,7 +611,16 @@ if start_clicked and topic_input.strip():
                 unsafe_allow_html=True
             )
         except Exception as e:
-            st.error(f"The debate hit an error and had to stop: {e}")
+            error_text = str(e)
+            if "429" in error_text or "rate_limit" in error_text.lower():
+                st.error(
+                    "⏳ Mistral's API rate limit was hit even after retrying. "
+                    "This usually means you're on a free-tier plan with a low "
+                    "requests-per-minute cap. Wait a minute before starting a "
+                    "new debate, or upgrade your Mistral plan for higher limits."
+                )
+            else:
+                st.error(f"The debate hit an error and had to stop: {error_text}")
         finally:
             st.session_state.running = False
             st.session_state.finished = True
@@ -555,3 +631,5 @@ elif not st.session_state.running and not topic_input:
             '<div class="status-banner">Enter a topic above and press Start Debate to begin</div>',
             unsafe_allow_html=True
         )
+
+render_footer()
