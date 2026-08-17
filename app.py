@@ -26,7 +26,7 @@ class State(TypedDict):
 
 
 LLM1 = ChatMistralAI(model='mistral-large-2512')
-LLM2 = ChatGroq(model='llama-3.3-70b-versatile')
+LLM2 = ChatGroq(model='meta-llama/llama-prompt-guard-2-22m')
 
 
 def invoke_with_retry(llm, messages, max_retries=5, base_delay=3):
