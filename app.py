@@ -26,7 +26,7 @@ class State(TypedDict):
 
 
 LLM1 = ChatGoogleGenerativeAI(model='gemini-3.5-flash-lite', api_key=st.secrets["GOOGLE_API_KEY"])
-LLM2 = ChatGroq(model='meta-llama/llama-prompt-guard-2-22m')
+LLM2 = ChatGroq(model='llama-3.3-70b-versatile')
 
 
 def invoke_with_retry(llm, messages, max_retries=5, base_delay=3):
