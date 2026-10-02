@@ -25,7 +25,7 @@ class State(TypedDict):
     attempt: int
 
 
-LLM1 = ChatGoogleGenerativeAI(model='gemini-2.5-flash', api_key=st.secrets["GOOGLE_API_KEY"])
+LLM1 = ChatGoogleGenerativeAI(model='gemini-3.5-flash-lite', api_key=st.secrets["GOOGLE_API_KEY"])
 LLM2 = ChatGroq(model='meta-llama/llama-prompt-guard-2-22m')
 
 
