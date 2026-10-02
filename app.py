@@ -6,7 +6,7 @@ import time
 import random
 import streamlit as st
 from typing import TypedDict, Annotated
-from langchain_mistralai import ChatMistralAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
@@ -25,7 +25,7 @@ class State(TypedDict):
     attempt: int
 
 
-LLM1 = ChatMistralAI(model='mistral-large-2512')
+LLM1 = ChatGoogleGenerativeAI(model='gemini-2.5-flash', api_key=st.secrets["GOOGLE_API_KEY"])
 LLM2 = ChatGroq(model='meta-llama/llama-prompt-guard-2-22m')
 
 
