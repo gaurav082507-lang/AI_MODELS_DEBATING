@@ -114,6 +114,10 @@ def MistralAI_node(state: State) -> dict:
     time.sleep(2)  # small pacing delay to avoid bursting past rate limits
     response = invoke_with_retry(LLM1, messages)
     mistralai_reply = response.content
+    if isinstance(mistralai_reply, list):
+        mistralai_reply = "".join([m.get("text", "") if isinstance(m, dict) else str(m) for m in mistralai_reply])
+    else:
+        mistralai_reply = str(mistralai_reply)
     print(f"MISTRALAI_BOT :{mistralai_reply}\n\n")
     print("=" * 50)
 
@@ -184,6 +188,10 @@ def GROQAI_node(state: State) -> dict:
     time.sleep(2)  # small pacing delay to avoid bursting past rate limits
     response = invoke_with_retry(LLM2, messages)
     groq_reply = response.content
+    if isinstance(groq_reply, list):
+        groq_reply = "".join([m.get("text", "") if isinstance(m, dict) else str(m) for m in groq_reply])
+    else:
+        groq_reply = str(groq_reply)
     print(f"GROQAI_BOT :{groq_reply}\n\n")
     print("=" * 50)
 
@@ -195,6 +203,10 @@ def GROQAI_node(state: State) -> dict:
 
 def should_stop(state: State):
     last_message = state['messages'][-1].content
+    if isinstance(last_message, list):
+        last_message = "".join([m.get("text", "") if isinstance(m, dict) else str(m) for m in last_message])
+    else:
+        last_message = str(last_message)
     attempt = state['attempt']
 
     if (attempt >= 5):
